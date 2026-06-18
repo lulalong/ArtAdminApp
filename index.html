@@ -486,6 +486,46 @@ tr:last-child td { border-bottom: none; }
 .month-in { color: var(--green); font-family: 'Cormorant Garamond', serif; }
 .month-out { color: var(--red); font-family: 'Cormorant Garamond', serif; }
 
+/* ── FILTER BAR ── */
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--hair);
+}
+.filter-bar select,
+.filter-bar input[type=text] {
+  font-family: 'Jost', sans-serif;
+  font-size: .78rem;
+  color: var(--ink);
+  border: 1px solid var(--hair);
+  background: #fff;
+  padding: 7px 10px;
+  border-radius: 0;
+  appearance: none;
+  height: 34px;
+}
+.filter-bar select:focus,
+.filter-bar input[type=text]:focus { outline: none; border-color: var(--gold); }
+.filter-bar input[type=text] { min-width: 200px; flex: 1; }
+.filter-count {
+  font-size: .7rem;
+  color: var(--muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+th.sortable:hover { color: var(--gold); }
+th.sortable::after { content: ' ⇅'; opacity: .4; font-size: .7em; }
+th.sort-asc::after { content: ' ↑'; opacity: 1; color: var(--gold); }
+th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
+
 /* ── TOAST ── */
 .toast {
   position: fixed;
@@ -588,6 +628,9 @@ tr:last-child td { border-bottom: none; }
         <h1 class="page-title">Dashboard</h1>
         <div class="page-subtitle" id="dash-year-label">Current tax year</div>
       </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <select id="dash-year" style="font-family:'Jost',sans-serif;font-size:.78rem;color:var(--ink);border:1px solid var(--hair);padding:7px 10px;background:#fff;appearance:none;height:34px"></select>
+      </div>
     </div>
     <div class="stat-grid">
       <div class="stat-card">
@@ -640,16 +683,35 @@ tr:last-child td { border-bottom: none; }
       </div>
       <button class="btn btn-primary" id="btn-new-sale">+ Add sale</button>
     </div>
+    <div class="filter-bar">
+      <input type="text" id="sales-search" placeholder="Search client, title, invoice…">
+      <select id="sales-filter-year"><option value="">All years</option></select>
+      <select id="sales-filter-stage">
+        <option value="">All stages</option>
+        <option value="enquiry">Awaiting deposit</option>
+        <option value="in-progress">In progress</option>
+        <option value="awaiting-balance">Awaiting balance</option>
+        <option value="ready-to-post">Ready to post</option>
+        <option value="done">Done</option>
+      </select>
+      <select id="sales-filter-type">
+        <option value="">All types</option>
+        <option value="commission">Commission</option>
+        <option value="original">Original</option>
+        <option value="print">Print</option>
+      </select>
+      <span class="filter-count" id="sales-filter-count"></span>
+    </div>
     <div class="table-wrap">
       <table id="sales-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Client</th>
-            <th>Title</th>
-            <th>Type</th>
-            <th>Price</th>
-            <th>Stage</th>
+            <th class="sortable sort-desc" data-sort="date" data-table="sales">Date</th>
+            <th class="sortable" data-sort="client" data-table="sales">Client</th>
+            <th class="sortable" data-sort="title" data-table="sales">Title</th>
+            <th class="sortable" data-sort="type" data-table="sales">Type</th>
+            <th class="sortable" data-sort="salePrice" data-table="sales">Price</th>
+            <th class="sortable" data-sort="stage" data-table="sales">Stage</th>
             <th></th>
           </tr>
         </thead>
@@ -668,15 +730,37 @@ tr:last-child td { border-bottom: none; }
       </div>
       <button class="btn btn-primary" id="btn-new-expense">+ Add expense</button>
     </div>
+    <div class="filter-bar">
+      <input type="text" id="expenses-search" placeholder="Search description, category…">
+      <select id="expenses-filter-year"><option value="">All years</option></select>
+      <select id="expenses-filter-paid">
+        <option value="">All</option>
+        <option value="unpaid">Unpaid</option>
+        <option value="paid">Paid</option>
+      </select>
+      <select id="expenses-filter-category">
+        <option value="">All categories</option>
+        <option>Materials</option>
+        <option>Framing</option>
+        <option>Printing &amp; reproductions</option>
+        <option>Postage &amp; shipping</option>
+        <option>Software &amp; subscriptions</option>
+        <option>Exhibition fees</option>
+        <option>Photography</option>
+        <option>Marketing</option>
+        <option>Other</option>
+      </select>
+      <span class="filter-count" id="expenses-filter-count"></span>
+    </div>
     <div class="table-wrap">
       <table id="expenses-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Category</th>
-            <th>Description</th>
-            <th style="text-align:right">Amount</th>
-            <th>Paid</th>
+            <th class="sortable sort-desc" data-sort="date" data-table="expenses">Date</th>
+            <th class="sortable" data-sort="category" data-table="expenses">Category</th>
+            <th class="sortable" data-sort="description" data-table="expenses">Description</th>
+            <th class="sortable" data-sort="amount" data-table="expenses" style="text-align:right">Amount</th>
+            <th class="sortable" data-sort="paid" data-table="expenses">Paid</th>
             <th></th>
           </tr>
         </thead>
@@ -944,9 +1028,6 @@ tr:last-child td { border-bottom: none; }
         <option>Exhibition fees</option>
         <option>Photography</option>
         <option>Marketing</option>
-        <option>Training &amp; events</option>
-        <option>Hardware</option>
-        <option>Stationery</option>
         <option>Other</option>
       </select>
     </div>
@@ -1187,7 +1268,7 @@ function navigate(page) {
   if (page === 'expenses') renderExpenses();
   if (page === 'editions') renderEditions();
   if (page === 'reports') renderReports();
-  if (page === 'settings') populateSettings();
+  if (page === 'settings') populateSettings();  // async, intentionally not awaited
 }
 
 document.querySelectorAll('.nav-item').forEach(btn => {
@@ -1209,13 +1290,22 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 
 // ── DASHBOARD ───────────────────────────────────────────────────────────────
 async function renderDashboard() {
-  const yr = currentTaxYear();
+  const allSalesForYear = await dbGetAll('sales');
+  const allExpensesForYear = await dbGetAll('expenses');
+
+  // Populate year selector from actual data
+  const allYears = getYearsFromData([...allSalesForYear, ...allExpensesForYear]);
+  const curYear = String(currentTaxYear());
+  if (!allYears.includes(curYear)) allYears.unshift(curYear);
+  populateDashYears(allYears);
+
+  const yr = parseInt(document.getElementById('dash-year').value) || currentTaxYear();
   const { start, end } = taxYearRange(yr);
   document.getElementById('dash-year-label').textContent =
     `Tax year ${yr}` + (settings.taxYearStart === 1 ? '' : `–${yr+1}`);
 
-  const sales = await dbGetAll('sales');
-  const expenses = await dbGetAll('expenses');
+  const sales = allSalesForYear;
+  const expenses = allExpensesForYear;
 
   const yrSales = sales.filter(s => s.date && inRange(s.date, start, end));
   const yrExp = expenses.filter(e => e.date && inRange(e.date, start, end));
@@ -1292,18 +1382,125 @@ async function renderDashboard() {
 }
 
 // ── SALES ───────────────────────────────────────────────────────────────────
+// ── SORT / FILTER STATE ──────────────────────────────────────────────────────
+const _sortState = {
+  sales:    { col: 'date', dir: 'desc' },
+  expenses: { col: 'date', dir: 'desc' },
+};
+
+function getYearsFromData(items) {
+  const years = new Set();
+  items.forEach(item => { if (item.date) years.add(item.date.slice(0,4)); });
+  return [...years].sort().reverse();
+}
+
+function populateYearFilter(selectId, years) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All years</option>' +
+    years.map(y => `<option value="${y}" ${y === current ? 'selected' : ''}>${y}</option>`).join('');
+}
+
+function populateDashYears(years) {
+  const sel = document.getElementById('dash-year');
+  if (!sel) return;
+  const curYear = String(currentTaxYear());
+  const current = sel.value || curYear;
+  sel.innerHTML = years.map(y => `<option value="${y}" ${y === current ? 'selected' : ''}>${y}</option>`).join('');
+  if (!sel.value) sel.value = curYear;
+}
+
+function sortItems(items, col, dir) {
+  return [...items].sort((a, b) => {
+    let av = a[col], bv = b[col];
+    if (col === 'stage') { av = saleStage(a); bv = saleStage(b); }
+    if (col === 'salePrice' || col === 'amount') { av = parseFloat(av) || 0; bv = parseFloat(bv) || 0; }
+    if (col === 'paid') { av = a.paid ? 1 : 0; bv = b.paid ? 1 : 0; }
+    av = av || ''; bv = bv || '';
+    if (av < bv) return dir === 'asc' ? -1 : 1;
+    if (av > bv) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+
+function wireFilterAndSort() {
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const table = th.dataset.table;
+      const col = th.dataset.sort;
+      const state = _sortState[table];
+      if (state.col === col) {
+        state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.col = col;
+        state.dir = 'asc';
+      }
+      document.querySelectorAll(`th[data-table="${table}"]`).forEach(h => {
+        h.classList.remove('sort-asc', 'sort-desc');
+      });
+      th.classList.add(state.dir === 'asc' ? 'sort-asc' : 'sort-desc');
+      if (table === 'sales') renderSales();
+      if (table === 'expenses') renderExpenses();
+    });
+  });
+  ['sales-search','sales-filter-year','sales-filter-stage','sales-filter-type'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', renderSales);
+  });
+  ['expenses-search','expenses-filter-year','expenses-filter-paid','expenses-filter-category'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', renderExpenses);
+  });
+  const dashYr = document.getElementById('dash-year');
+  if (dashYr) dashYr.addEventListener('change', renderDashboard);
+}
+
 async function renderSales() {
-  const sales = await dbGetAll('sales');
+  const allSales = await dbGetAll('sales');
   const editions = await dbGetAll('editions');
   const edMap = {};
   editions.forEach(e => edMap[e.id] = e.title);
 
-  sales.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  // Populate year filter
+  populateYearFilter('sales-filter-year', getYearsFromData(allSales));
+
+  // Apply filters
+  const search = (document.getElementById('sales-search')?.value || '').toLowerCase();
+  const filterYear = document.getElementById('sales-filter-year')?.value || '';
+  const filterStage = document.getElementById('sales-filter-stage')?.value || '';
+  const filterType = document.getElementById('sales-filter-type')?.value || '';
+
+  let sales = allSales.filter(s => {
+    if (filterYear && (!s.date || s.date.slice(0,4) !== filterYear)) return false;
+    if (filterStage && saleStage(s) !== filterStage) return false;
+    if (filterType && s.type !== filterType) return false;
+    if (search) {
+      const hay = [s.client, s.title, s.invoiceNum, s.contact].join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  const { col, dir } = _sortState.sales;
+  sales = sortItems(sales, col, dir);
+
+  const countEl = document.getElementById('sales-filter-count');
+  if (countEl) countEl.textContent = sales.length !== allSales.length
+    ? `${sales.length} of ${allSales.length}` : `${allSales.length} total`;
+
   const tbody = document.getElementById('sales-tbody');
-  if (sales.length === 0) {
+  if (allSales.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><strong>No sales yet</strong>Add your first sale to get started.</div></td></tr>`;
     return;
   }
+  if (sales.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><strong>No results</strong>Try adjusting your filters.</div></td></tr>`;
+    document.getElementById('sales-cards').innerHTML = '<div class="empty-state"><strong>No results</strong>Try adjusting your filters.</div>';
+    return;
+  }
+
   tbody.innerHTML = sales.map(s => {
     const stage = saleStage(s);
     const edLabel = s.editionId && edMap[s.editionId] ? `<br><span style="font-size:.7rem;color:var(--muted)">${edMap[s.editionId]}</span>` : '';
@@ -1670,11 +1867,45 @@ document.getElementById('btn-save-sale').addEventListener('click', async () => {
 
 // ── EXPENSES ────────────────────────────────────────────────────────────────
 async function renderExpenses() {
-  const expenses = await dbGetAll('expenses');
-  expenses.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const allExpenses = await dbGetAll('expenses');
+
+  // Populate year filter
+  populateYearFilter('expenses-filter-year', getYearsFromData(allExpenses));
+
+  // Apply filters
+  const search = (document.getElementById('expenses-search')?.value || '').toLowerCase();
+  const filterYear = document.getElementById('expenses-filter-year')?.value || '';
+  const filterPaid = document.getElementById('expenses-filter-paid')?.value || '';
+  const filterCat = document.getElementById('expenses-filter-category')?.value || '';
+
+  let expenses = allExpenses.filter(e => {
+    if (filterYear && (!e.date || e.date.slice(0,4) !== filterYear)) return false;
+    if (filterPaid === 'paid' && !e.paid) return false;
+    if (filterPaid === 'unpaid' && e.paid) return false;
+    if (filterCat && e.category !== filterCat) return false;
+    if (search) {
+      const hay = [e.description, e.category, e.notes].join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  const { col, dir } = _sortState.expenses;
+  expenses = sortItems(expenses, col, dir);
+
+  const countEl = document.getElementById('expenses-filter-count');
+  if (countEl) countEl.textContent = expenses.length !== allExpenses.length
+    ? `${expenses.length} of ${allExpenses.length}` : `${allExpenses.length} total`;
+
   const tbody = document.getElementById('expenses-tbody');
+  if (allExpenses.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><strong>No expenses yet</strong>Log materials, printing, postage and more.</div></td></tr>`;
+    return;
+  }
   if (expenses.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><strong>No expenses yet</strong>Log materials, printing, postage and more.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><strong>No results</strong>Try adjusting your filters.</div></td></tr>`;
+    document.getElementById('expenses-cards').innerHTML = '<div class="empty-state"><strong>No results</strong>Try adjusting your filters.</div>';
     return;
   }
   tbody.innerHTML = expenses.map(e => `<tr>
@@ -1942,28 +2173,22 @@ document.getElementById('btn-export-csv').addEventListener('click', async () => 
 });
 
 // ── SETTINGS ────────────────────────────────────────────────────────────────
-function populateSettings() {
+async function populateSettings() {
   document.getElementById('set-name').value = settings.artistName || '';
   document.getElementById('set-taxmonth').value = settings.taxYearStart || 1;
-  document.getElementById('set-gist-token').value = settings.gistToken || '';
-  document.getElementById('set-gist-id').value = settings.gistId || '';
-  // populate report year dropdown
-  const yr = currentTaxYear();
+  // populate report year dropdown from actual data
+  const allForYears = [...(await dbGetAll('sales')), ...(await dbGetAll('expenses'))];
+  const dataYears = getYearsFromData(allForYears);
+  const curYr = String(currentTaxYear());
+  if (!dataYears.includes(curYr)) dataYears.unshift(curYr);
   const sel = document.getElementById('report-year');
-  sel.innerHTML = '';
-  for (let y = yr - 3; y <= yr + 1; y++) {
-    const opt = document.createElement('option');
-    opt.value = y; opt.textContent = y;
-    if (y === yr) opt.selected = true;
-    sel.appendChild(opt);
-  }
+  const currentVal = sel.value || curYr;
+  sel.innerHTML = dataYears.map(y => `<option value="${y}" ${y === currentVal ? 'selected' : ''}>${y}</option>`).join('');
 }
 
 document.getElementById('btn-save-settings').addEventListener('click', async () => {
   await saveSetting('artistName', document.getElementById('set-name').value.trim());
   await saveSetting('taxYearStart', parseInt(document.getElementById('set-taxmonth').value));
-  await saveSetting('gistToken', document.getElementById('set-gist-token').value.trim());
-  await saveSetting('gistId', document.getElementById('set-gist-id').value.trim());
   toast('Settings saved');
 });
 
@@ -2379,7 +2604,8 @@ function generateInvoice(sale) {
 (async () => {
   await openDB();
   await loadSettings();
-  populateSettings();
+  wireFilterAndSort();
+  await populateSettings();
   renderDashboard();
 })();
 </script>
