@@ -421,16 +421,48 @@ tr:last-child td { border-bottom: none; }
 .checkbox-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 8px;
 }
-.checkbox-row input[type=checkbox] { width: auto; }
+.checkbox-row input[type=checkbox] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--hair);
+  background: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: border-color .15s, background .15s;
+}
+.checkbox-row input[type=checkbox]:checked {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.checkbox-row input[type=checkbox]:checked::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 5px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+.checkbox-row input[type=checkbox]:focus {
+  outline: none;
+  border-color: var(--goldd);
+}
 .checkbox-row label {
   font-size: .78rem;
   letter-spacing: normal;
   text-transform: none;
   color: var(--ink);
   margin: 0;
+  cursor: pointer;
 }
 
 /* ── DASHBOARD LISTS ── */
@@ -489,7 +521,7 @@ tr:last-child td { border-bottom: none; }
 /* ── FILTER BAR ── */
 .filter-bar {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 16px;
@@ -507,10 +539,13 @@ tr:last-child td { border-bottom: none; }
   border-radius: 0;
   appearance: none;
   height: 34px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .filter-bar select:focus,
 .filter-bar input[type=text]:focus { outline: none; border-color: var(--gold); }
-.filter-bar input[type=text] { min-width: 200px; flex: 1; }
+.filter-bar input[type=text] { flex: 1 1 100%; min-width: 0; }
+.filter-bar select { flex: 1 1 auto; min-width: 0; }
 .filter-count {
   font-size: .7rem;
   color: var(--muted);
@@ -576,6 +611,10 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
   .card-list { display: block; }
   .page-header { flex-direction: column; gap: 12px; align-items: flex-start; }
   .dash-grid-2 { grid-template-columns: 1fr !important; }
+  .filter-bar { gap: 6px; }
+  .filter-bar input[type=text] { flex: 1 1 100%; width: 100%; }
+  .filter-bar select { flex: 1 1 calc(50% - 6px); }
+  .filter-count { flex: 1 1 100%; text-align: left; }
 }
 </style>
 </head>
@@ -1945,8 +1984,10 @@ document.getElementById('btn-new-expense').addEventListener('click', () => {
   document.getElementById('expense-amount').value = '';
   document.getElementById('expense-category').value = 'Materials';
   document.getElementById('expense-desc').value = '';
-  document.getElementById('expense-paid').checked = false;
-  document.getElementById('expense-paid-date').style.display = 'none';
+  document.getElementById('expense-paid').checked = true;
+  const expDate = document.getElementById('expense-date').value || today();
+  document.getElementById('expense-paid-date').value = expDate;
+  document.getElementById('expense-paid-date').style.display = 'block';
   document.getElementById('expense-notes').value = '';
   openModal('modal-expense');
 });
@@ -1978,7 +2019,22 @@ async function deleteExpense(id) {
 document.getElementById('expense-paid').addEventListener('change', e => {
   const d = document.getElementById('expense-paid-date');
   d.style.display = e.target.checked ? 'block' : 'none';
-  if (e.target.checked && !d.value) d.value = today();
+  if (e.target.checked) {
+    // Default paid date to expense date if set, otherwise today
+    const expDate = document.getElementById('expense-date').value;
+    if (!d.value) d.value = expDate || today();
+  } else {
+    d.value = '';
+  }
+});
+
+// Sync paid date when expense date changes (if paid is checked and date was auto-set)
+document.getElementById('expense-date').addEventListener('change', e => {
+  const paid = document.getElementById('expense-paid');
+  const paidDate = document.getElementById('expense-paid-date');
+  if (paid.checked && !paidDate.value) {
+    paidDate.value = e.target.value;
+  }
 });
 
 document.getElementById('btn-save-expense').addEventListener('click', async () => {
