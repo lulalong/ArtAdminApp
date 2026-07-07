@@ -1257,6 +1257,15 @@ async function saveSetting(key, value) {
 // ── UTILS ───────────────────────────────────────────────────────────────────
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
+// Net proceeds: sale price minus any recorded splits (gallery commission, charity, etc.)
+// Used for all income/revenue calculations so tax figures reflect what the artist actually receives.
+function netProceeds(sale) {
+  const price = parseFloat(sale.salePrice) || 0;
+  if (!sale.splits || !sale.splits.length) return price;
+  const splitTotal = sale.splits.reduce((t, sp) => t + (parseFloat(sp.amount) || 0), 0);
+  return price - splitTotal;
+}
+
 function fmt(n) {
   if (n === undefined || n === null || n === '') return '—';
   const v = parseFloat(n);
@@ -1386,7 +1395,7 @@ async function renderDashboard() {
   const yrSales = sales.filter(s => s.date && inRange(s.date, start, end));
   const yrExp = expenses.filter(e => e.date && inRange(e.date, start, end));
 
-  const income = yrSales.reduce((a, s) => a + (parseFloat(s.salePrice) || 0), 0);
+  const income = yrSales.reduce((a, s) => a + netProceeds(s), 0);
   const expTotal = yrExp.reduce((a, e) => a + (parseFloat(e.amount) || 0), 0);
   const net = income - expTotal;
   const tax = net > 0 ? net * 0.20 : 0;
@@ -2255,7 +2264,7 @@ async function renderReports() {
   const yrSales = sales.filter(s => s.date && inRange(s.date, start, end));
   const yrExp = expenses.filter(e => e.date && inRange(e.date, start, end));
 
-  const income = yrSales.reduce((a, s) => a + (parseFloat(s.salePrice) || 0), 0);
+  const income = yrSales.reduce((a, s) => a + netProceeds(s), 0);
   const expTotal = yrExp.reduce((a, e) => a + (parseFloat(e.amount) || 0), 0);
   const net = income - expTotal;
   const tax = net > 0 ? net * 0.20 : 0;
@@ -2272,7 +2281,7 @@ async function renderReports() {
   const monthlyIn = {};
   yrSales.forEach(s => {
     const m = s.date ? s.date.slice(5, 7) : null;
-    if (m) monthlyIn[m] = (monthlyIn[m] || 0) + (parseFloat(s.salePrice) || 0);
+    if (m) monthlyIn[m] = (monthlyIn[m] || 0) + netProceeds(s);
   });
   const miEl = document.getElementById('rep-monthly-income');
   miEl.innerHTML = months.map((name, i) => {
@@ -2306,14 +2315,14 @@ document.getElementById('btn-export-csv').addEventListener('click', async () => 
   const expenses = await dbGetAll('expenses');
   const yrSales = sales.filter(s => s.date && inRange(s.date, start, end));
   const yrExp = expenses.filter(e => e.date && inRange(e.date, start, end));
-  const csvIncome = yrSales.reduce((a, s) => a + (parseFloat(s.salePrice) || 0), 0);
+  const csvIncome = yrSales.reduce((a, s) => a + netProceeds(s), 0);
   const csvExp = yrExp.reduce((a, e) => a + (parseFloat(e.amount) || 0), 0);
   const csvNet = csvIncome - csvExp;
   const csvTax = csvNet > 0 ? csvNet * 0.20 : 0;
 
   const rows = [['Date','Type','Description','Category','In (£)','Out (£)']];
   yrSales.sort((a,b) => a.date.localeCompare(b.date)).forEach(s => {
-    rows.push([s.date, s.type, `${s.client} – ${s.title}`, 'Sale', s.salePrice || 0, '']);
+    rows.push([s.date, s.type, `${s.client} – ${s.title}`, 'Sale', netProceeds(s) || 0, '']);
   });
   yrExp.sort((a,b) => a.date.localeCompare(b.date)).forEach(e => {
     rows.push([e.date, 'Expense', e.description || e.category, e.category, '', e.amount || 0]);
@@ -2830,9 +2839,10 @@ const INVOICE_HTML = `<!DOCTYPE html>
     .controls{ display:none !important; }
     .sheet{ box-shadow:none; max-width:none; margin:0; padding:10mm 0 0; }
   }
-  .note-checks { display:flex; flex-direction:column; gap:8px; }
-  .note-checks label { font-size:.9rem !important; display:flex !important; align-items:flex-start !important; gap:8px !important; cursor:pointer; line-height:1.5 !important; text-transform:none !important; letter-spacing:normal !important; font-weight:normal !important; color:#3a2e2a !important; }
-  .note-checks input[type=checkbox] { margin-top:3px; flex-shrink:0; }
+  .note-checks { display:flex; flex-direction:column; gap:10px; }
+  .note-checks label { font-size:.88rem !important; display:flex !important; flex-direction:row !important; align-items:flex-start !important; justify-content:flex-start !important; gap:8px !important; cursor:pointer; line-height:1.5 !important; text-transform:none !important; letter-spacing:normal !important; font-weight:normal !important; color:#3a2e2a !important; width:100% !important; }
+  .note-checks input[type=checkbox] { width:auto !important; min-width:0 !important; flex-shrink:0; margin-top:3px; }
+  .note-checks input[type=text] { width:100%; margin-top:4px; }
 </style>
 </head>
 <body>
@@ -2903,7 +2913,7 @@ const INVOICE_HTML = `<!DOCTYPE html>
     </div>
 
     <div class="block" id="o-splits-section" style="display:none;">
-      <div class="section-label">Proceeds distribution</div>
+      <div class="section-label">Breakdown</div>
       <table><tbody id="o-splits-rows"></tbody></table>
     </div>
 
@@ -3023,7 +3033,7 @@ const INVOICE_HTML = `<!DOCTYPE html>
       var rowsHtml = d.splits.map(function(s) {
         return '<tr><td>' + (s.label||'Split') + '</td><td class="amt">' + money(s.amount||0) + '</td></tr>';
       }).join('');
-      rowsHtml += '<tr class="total"><td>Your net proceeds</td><td class="amt">' + money(price - totalSplit) + '</td></tr>';
+      rowsHtml += '<tr class="total"><td>Amount due</td><td class="amt">' + money(price - totalSplit) + '</td></tr>';
       if (splitSec && splitRows) { splitRows.innerHTML = rowsHtml; splitSec.style.display = ''; }
       if (sInfo && sInfoRows) { sInfoRows.innerHTML = rowsHtml; sInfo.style.display = ''; }
     }
