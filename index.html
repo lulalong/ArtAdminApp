@@ -673,12 +673,12 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
       </div>
     </div>
     <div class="stat-grid">
-      <div class="stat-card">
+      <div class="stat-card" onclick="navigate('sales')" style="cursor:pointer;" title="Go to Sales">
         <div class="stat-label">Income</div>
         <div class="stat-value" id="stat-income">£0</div>
         <div class="stat-sub" id="stat-income-sub">0 sales</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" onclick="navigate('expenses')" style="cursor:pointer;" title="Go to Expenses">
         <div class="stat-label">Expenses</div>
         <div class="stat-value" id="stat-expenses">£0</div>
         <div class="stat-sub" id="stat-expenses-sub">0 items</div>
@@ -1015,6 +1015,11 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
       </div>
       <div class="field-hint" style="margin-top:6px;">e.g. Gallery £180, Charity £90. Your net = sale price − all splits.</div>
       <div style="font-size:.63rem;letter-spacing:.16em;text-transform:uppercase;color:var(--goldd);margin:16px 0 10px;border-top:1px solid var(--hair);padding-top:14px">Invoice details</div>
+      <div class="field">
+        <label>Invoice number</label>
+        <input type="text" id="sale-invoice-num" placeholder="Auto-assigned on generation">
+        <div class="field-hint">Assigned automatically when you generate an invoice. Edit here to correct if needed.</div>
+      </div>
       <div class="field-row">
         <div class="field">
           <label>Medium</label>
@@ -1703,6 +1708,7 @@ document.getElementById('btn-new-sale').addEventListener('click', () => {
   document.getElementById('sale-contact').value = '';
   document.getElementById('sale-address').value = '';
   document.getElementById('sale-notes').value = '';
+  document.getElementById('sale-invoice-num').value = '';
   clearSplits();
   populateEditionSelect();
   openModal('modal-sale');
@@ -1797,6 +1803,7 @@ async function editSale(id) {
   document.getElementById('sale-contact').value = s.contact || '';
   document.getElementById('sale-address').value = s.address || '';
   document.getElementById('sale-notes').value = s.notes || '';
+  document.getElementById('sale-invoice-num').value = s.invoiceNum || '';
   clearSplits();
   (s.splits || []).forEach(sp => addSplitRow(sp.label || '', sp.amount || ''));
   await populateEditionSelect(s.editionId);
@@ -1964,13 +1971,6 @@ document.getElementById('sale-dispatched').addEventListener('change', e => {
 document.getElementById('btn-save-sale').addEventListener('click', async () => {
   const existingId = document.getElementById('sale-id').value;
   const id = existingId || uid();
-  // Preserve invoiceNum if already assigned
-  let existingInvoiceNum = null;
-  if (existingId) {
-    const allSales = await dbGetAll('sales');
-    const existing = allSales.find(s => s.id === existingId);
-    if (existing) existingInvoiceNum = existing.invoiceNum || null;
-  }
   const sale = {
     id,
     date: document.getElementById('sale-date').value,
@@ -1991,7 +1991,7 @@ document.getElementById('btn-save-sale').addEventListener('click', async () => {
     dimensions: document.getElementById('sale-dimensions').value.trim(),
     contact: document.getElementById('sale-contact').value.trim(),
     address: document.getElementById('sale-address').value.trim(),
-    invoiceNum: existingInvoiceNum,
+    invoiceNum: document.getElementById('sale-invoice-num').value.trim() || null,
     notes: document.getElementById('sale-notes').value.trim(),
     splits: (() => {
       const rows = document.querySelectorAll('#sale-splits-list .split-row');
@@ -2872,10 +2872,6 @@ const INVOICE_HTML = `<!DOCTYPE html>
         </div>
       </div>
     </div>
-    <div id="splits-info" style="display:none;background:#f5f0eb;border-radius:6px;padding:12px;margin-bottom:14px;">
-      <div style="font-size:.63rem;letter-spacing:.1em;text-transform:uppercase;color:#9a8070;margin-bottom:8px;">Proceeds split · your records</div>
-      <div id="splits-info-rows" style="font-size:.85rem;"></div>
-    </div>
     <button class="btn" onclick="window.print()">Save as PDF</button>
   </div>
 
@@ -3035,7 +3031,6 @@ const INVOICE_HTML = `<!DOCTYPE html>
       }).join('');
       rowsHtml += '<tr class="total"><td>Amount due</td><td class="amt">' + money(price - totalSplit) + '</td></tr>';
       if (splitSec && splitRows) { splitRows.innerHTML = rowsHtml; splitSec.style.display = ''; }
-      if (sInfo && sInfoRows) { sInfoRows.innerHTML = rowsHtml; sInfo.style.display = ''; }
     }
     if (typeof sync === 'function') sync();
   } catch(e) {}
