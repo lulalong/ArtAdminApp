@@ -617,6 +617,7 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
   .filter-count { flex: 1 1 100%; text-align: left; }
 }
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -892,6 +893,16 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
       </div>
     </div>
     <div class="settings-section">
+      <div class="settings-section-title">Google Drive sync</div>
+      <div class="field-hint" id="drive-sync-status">Not connected</div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" id="btn-drive-signin">Sign in with Google</button>
+        <button class="btn btn-ghost" id="btn-drive-sync-now" style="display:none;">Sync now</button>
+        <button class="btn btn-ghost" id="btn-drive-signout" style="display:none;">Sign out</button>
+      </div>
+      <div class="field-hint" style="margin-top:8px;">Signing in once per browser session keeps this device automatically synced. Records are merged across devices; if the same record was edited on two devices before syncing, the most recently edited version wins and you'll see a notice.</div>
+    </div>
+    <div class="settings-section">
       <div class="settings-section-title">GitHub Gist backup</div>
       <div class="field">
         <label>Personal access token</label>
@@ -996,6 +1007,13 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
       <input type="date" id="sale-dispatch-date" style="display:none;margin-top:6px">
     </div>
     <div id="sale-invoice-fields">
+      <div style="font-size:.63rem;letter-spacing:.16em;text-transform:uppercase;color:var(--goldd);margin:16px 0 10px;border-top:1px solid var(--hair);padding-top:14px">Proceeds split</div>
+      <div id="sale-splits-list"></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:4px;">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-add-split">+ Add party</button>
+        <span class="field-hint" id="sale-splits-net" style="margin:0;"></span>
+      </div>
+      <div class="field-hint" style="margin-top:6px;">e.g. Gallery £180, Charity £90. Your net = sale price − all splits.</div>
       <div style="font-size:.63rem;letter-spacing:.16em;text-transform:uppercase;color:var(--goldd);margin:16px 0 10px;border-top:1px solid var(--hair);padding-top:14px">Invoice details</div>
       <div class="field-row">
         <div class="field">
@@ -1186,12 +1204,25 @@ function dbGetAll(store) {
   });
 }
 
-function dbPut(store, obj) {
+const SYNCED_STORES = ['sales', 'expenses', 'editions'];
+
+function dbPutRaw(store, obj) {
   return new Promise((res, rej) => {
     const req = tx(store, 'readwrite').put(obj);
     req.onsuccess = () => res();
     req.onerror = e => rej(e.target.error);
   });
+}
+
+function dbPut(store, obj) {
+  if (SYNCED_STORES.includes(store) && obj && obj.updatedAt === undefined) {
+    obj.updatedAt = Date.now();
+  }
+  const p = dbPutRaw(store, obj);
+  if (SYNCED_STORES.includes(store)) {
+    p.then(() => { if (typeof schedulePush === 'function') schedulePush(); });
+  }
+  return p;
 }
 
 function dbDelete(store, id) {
@@ -1587,6 +1618,53 @@ async function renderSales() {
   }
 }
 
+// ── PROCEEDS SPLITS ─────────────────────────────────────────────────────────
+function addSplitRow(label = '', amount = '') {
+  const row = document.createElement('div');
+  row.className = 'split-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:center;';
+  row.innerHTML = `
+    <input type="text" placeholder="Party (e.g. Gallery)" value="${label}"
+      style="flex:1;padding:7px 10px;border:1px solid var(--hair);border-radius:4px;font-family:inherit;font-size:.88rem;background:#fff;color:var(--ink);"
+      oninput="updateSplitsNet()">
+    <input type="number" placeholder="£" step="0.01" min="0" value="${amount}"
+      style="width:90px;padding:7px 10px;border:1px solid var(--hair);border-radius:4px;font-family:inherit;font-size:.88rem;background:#fff;color:var(--ink);"
+      oninput="updateSplitsNet()">
+    <button type="button" onclick="this.closest('.split-row').remove();updateSplitsNet();"
+      style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:0 4px;line-height:1;">×</button>`;
+  document.getElementById('sale-splits-list').appendChild(row);
+  updateSplitsNet();
+}
+
+function updateSplitsNet() {
+  const price = parseFloat(document.getElementById('sale-price').value) || 0;
+  const rows = document.querySelectorAll('#sale-splits-list .split-row');
+  let total = 0;
+  rows.forEach(row => {
+    const amtInput = row.querySelectorAll('input')[1];
+    total += parseFloat(amtInput.value) || 0;
+  });
+  const net = price - total;
+  const el = document.getElementById('sale-splits-net');
+  if (el) {
+    if (rows.length > 0 && price > 0) {
+      el.textContent = `Your net: ${fmt(net)}`;
+      el.style.color = net < 0 ? 'var(--red)' : 'var(--muted)';
+    } else {
+      el.textContent = '';
+    }
+  }
+}
+
+function clearSplits() {
+  document.getElementById('sale-splits-list').innerHTML = '';
+  const el = document.getElementById('sale-splits-net');
+  if (el) el.textContent = '';
+}
+
+document.getElementById('btn-add-split').addEventListener('click', () => addSplitRow());
+document.getElementById('sale-price').addEventListener('input', updateSplitsNet);
+
 document.getElementById('btn-new-sale').addEventListener('click', () => {
   document.getElementById('sale-id').value = '';
   document.getElementById('sale-modal-title').textContent = 'Add sale';
@@ -1616,6 +1694,7 @@ document.getElementById('btn-new-sale').addEventListener('click', () => {
   document.getElementById('sale-contact').value = '';
   document.getElementById('sale-address').value = '';
   document.getElementById('sale-notes').value = '';
+  clearSplits();
   populateEditionSelect();
   openModal('modal-sale');
 });
@@ -1709,6 +1788,8 @@ async function editSale(id) {
   document.getElementById('sale-contact').value = s.contact || '';
   document.getElementById('sale-address').value = s.address || '';
   document.getElementById('sale-notes').value = s.notes || '';
+  clearSplits();
+  (s.splits || []).forEach(sp => addSplitRow(sp.label || '', sp.amount || ''));
   await populateEditionSelect(s.editionId);
   openModal('modal-sale');
 }
@@ -1736,6 +1817,8 @@ async function viewSale(id) {
     ['Title', s.title || '—'],
     editionName ? ['Edition', editionName] : null,
     ['Price', fmt(s.salePrice)],
+    ...(s.splits || []).map(sp => sp.label || sp.amount ? [sp.label || 'Split', fmt(sp.amount)] : null).filter(Boolean),
+    (s.splits && s.splits.length) ? ['Your net proceeds', fmt(s.salePrice - s.splits.reduce((t, sp) => t + (sp.amount || 0), 0))] : null,
     s.medium ? ['Medium', s.medium] : null,
     s.dimensions ? ['Dimensions', s.dimensions] : null,
     s.contact ? ['Contact', s.contact] : null,
@@ -1901,6 +1984,17 @@ document.getElementById('btn-save-sale').addEventListener('click', async () => {
     address: document.getElementById('sale-address').value.trim(),
     invoiceNum: existingInvoiceNum,
     notes: document.getElementById('sale-notes').value.trim(),
+    splits: (() => {
+      const rows = document.querySelectorAll('#sale-splits-list .split-row');
+      const result = [];
+      rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const label = inputs[0].value.trim();
+        const amount = parseFloat(inputs[1].value) || 0;
+        if (label || amount) result.push({ label, amount });
+      });
+      return result;
+    })(),
   };
   if (!sale.client || !sale.date) { toast('Client and date are required'); return; }
   await dbPut('sales', sale);
@@ -2254,6 +2348,224 @@ document.getElementById('btn-save-settings').addEventListener('click', async () 
   toast('Settings saved');
 });
 
+// ── GOOGLE DRIVE SYNC ───────────────────────────────────────────────────────
+const DRIVE_CLIENT_ID = '1010055822346-8odarejq8acn81rvln6ur2hlkdu9mhia.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_FILE_NAME = 'studio-admin-sync.json';
+
+const driveSync = {
+  tokenClient: null,
+  accessToken: null,
+  fileId: null,
+  signedIn: false,
+  syncing: false,
+  suppressPush: false,
+  pushTimer: null,
+  lastSync: null,
+};
+
+function initDriveAuth() {
+  if (!window.google || !google.accounts || !google.accounts.oauth2) {
+    setTimeout(initDriveAuth, 300);
+    return;
+  }
+  driveSync.tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: DRIVE_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: async (resp) => {
+      if (resp.error) {
+        toast('Google sign-in failed: ' + resp.error);
+        return;
+      }
+      driveSync.accessToken = resp.access_token;
+      driveSync.signedIn = true;
+      updateDriveUI();
+      await runSync();
+    },
+  });
+}
+
+function driveSignIn() {
+  if (!driveSync.tokenClient) { toast('Google sign-in is still loading, try again in a second'); return; }
+  driveSync.tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function driveSignOut() {
+  driveSync.accessToken = null;
+  driveSync.signedIn = false;
+  driveSync.fileId = null;
+  driveSync.lastSync = null;
+  updateDriveUI();
+  toast('Signed out of Google Drive');
+}
+
+function updateDriveUI() {
+  const statusEl = document.getElementById('drive-sync-status');
+  const signinBtn = document.getElementById('btn-drive-signin');
+  const syncBtn = document.getElementById('btn-drive-sync-now');
+  const signoutBtn = document.getElementById('btn-drive-signout');
+  if (!statusEl) return;
+  if (driveSync.signedIn) {
+    statusEl.textContent = driveSync.syncing
+      ? 'Syncing…'
+      : (driveSync.lastSync ? `Connected · last synced ${driveSync.lastSync}` : 'Connected');
+    signinBtn.style.display = 'none';
+    syncBtn.style.display = '';
+    signoutBtn.style.display = '';
+  } else {
+    statusEl.textContent = 'Not connected';
+    signinBtn.style.display = '';
+    syncBtn.style.display = 'none';
+    signoutBtn.style.display = 'none';
+  }
+}
+
+async function driveApiFetch(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers, { Authorization: 'Bearer ' + driveSync.accessToken });
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(await res.text());
+  return res;
+}
+
+async function driveFindFile() {
+  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+  const res = await driveApiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)&spaces=drive`);
+  const json = await res.json();
+  return (json.files && json.files[0]) || null;
+}
+
+async function driveGetFileContent(fileId) {
+  const res = await driveApiFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+  return res.json();
+}
+
+async function driveCreateFile(content) {
+  const metadata = { name: DRIVE_FILE_NAME, mimeType: 'application/json' };
+  const boundary = '-------studioadmin' + Date.now();
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+    `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(content)}\r\n` +
+    `--${boundary}--`;
+  const res = await driveApiFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body,
+  });
+  const json = await res.json();
+  return json.id;
+}
+
+async function driveUpdateFile(fileId, content) {
+  await driveApiFetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(content),
+  });
+}
+
+function describeRecordShort(store, r) {
+  if (store === 'sales') return `Sale: ${r.client || 'unnamed client'}${r.date ? ' (' + r.date + ')' : ''}`;
+  if (store === 'expenses') return `Expense: ${r.description || 'no description'}${r.date ? ' (' + r.date + ')' : ''}`;
+  if (store === 'editions') return `Edition: ${r.title || 'untitled'}`;
+  return r.id;
+}
+
+// Union-merges local and remote records by id. When the same id exists on both
+// sides with different content, the more recently updated one wins and is
+// reported as a conflict. Note: this does not currently sync deletions — a
+// record deleted on one device may reappear after syncing with a device that
+// still has it, since there's no tombstone tracking yet.
+function mergeStore(storeName, localRows, remoteRows) {
+  const byId = new Map();
+  localRows.forEach(r => byId.set(r.id, { local: r }));
+  remoteRows.forEach(r => {
+    const entry = byId.get(r.id) || {};
+    entry.remote = r;
+    byId.set(r.id, entry);
+  });
+  const merged = [];
+  const conflicts = [];
+  for (const [id, entry] of byId) {
+    const { local, remote } = entry;
+    if (local && remote) {
+      const lt = local.updatedAt || 0, rt = remote.updatedAt || 0;
+      const stripTs = o => JSON.stringify({ ...o, updatedAt: undefined });
+      const sameContent = stripTs(local) === stripTs(remote);
+      const winner = rt > lt ? remote : local;
+      if (!sameContent) conflicts.push(describeRecordShort(storeName, winner));
+      merged.push(winner);
+    } else {
+      merged.push(local || remote);
+    }
+  }
+  return { merged, conflicts };
+}
+
+async function runSync() {
+  if (!driveSync.signedIn || driveSync.syncing) return;
+  driveSync.syncing = true;
+  updateDriveUI();
+  try {
+    let file = await driveFindFile();
+    let remoteData = { sales: [], expenses: [], editions: [] };
+    if (file) {
+      driveSync.fileId = file.id;
+      remoteData = await driveGetFileContent(file.id);
+    }
+    const localSales = await dbGetAll('sales');
+    const localExpenses = await dbGetAll('expenses');
+    const localEditions = await dbGetAll('editions');
+
+    const salesResult = mergeStore('sales', localSales, remoteData.sales || []);
+    const expensesResult = mergeStore('expenses', localExpenses, remoteData.expenses || []);
+    const editionsResult = mergeStore('editions', localEditions, remoteData.editions || []);
+
+    driveSync.suppressPush = true;
+    for (const r of salesResult.merged) await dbPut('sales', r);
+    for (const r of expensesResult.merged) await dbPut('expenses', r);
+    for (const r of editionsResult.merged) await dbPut('editions', r);
+    driveSync.suppressPush = false;
+
+    const mergedData = {
+      sales: salesResult.merged,
+      expenses: expensesResult.merged,
+      editions: editionsResult.merged,
+      exportedAt: new Date().toISOString(),
+    };
+
+    if (file) {
+      await driveUpdateFile(file.id, mergedData);
+    } else {
+      driveSync.fileId = await driveCreateFile(mergedData);
+    }
+
+    const allConflicts = [...salesResult.conflicts, ...expensesResult.conflicts, ...editionsResult.conflicts];
+    toast(allConflicts.length
+      ? `Synced — ${allConflicts.length} record(s) resolved by most recent edit`
+      : 'Synced with Google Drive ✓');
+    driveSync.lastSync = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    renderDashboard();
+  } catch (e) {
+    console.error(e);
+    toast('Sync failed: ' + e.message);
+  } finally {
+    driveSync.syncing = false;
+    updateDriveUI();
+  }
+}
+
+function schedulePush() {
+  if (!driveSync.signedIn || driveSync.suppressPush) return;
+  clearTimeout(driveSync.pushTimer);
+  driveSync.pushTimer = setTimeout(runSync, 2000);
+}
+
+document.getElementById('btn-drive-signin').addEventListener('click', driveSignIn);
+document.getElementById('btn-drive-sync-now').addEventListener('click', runSync);
+document.getElementById('btn-drive-signout').addEventListener('click', driveSignOut);
+
+initDriveAuth();
+
 // ── BACKUP / RESTORE ────────────────────────────────────────────────────────
 async function getAllData() {
   return {
@@ -2347,13 +2659,53 @@ document.getElementById('btn-import-json').addEventListener('click', () => {
   document.getElementById('import-file').click();
 });
 
+function describeRecord(store, r) {
+  if (store === 'sales') return `Sale: ${r.client || 'unnamed client'}${r.date ? ' (' + r.date + ')' : ''}`;
+  if (store === 'expenses') return `Expense: ${r.description || 'no description'}${r.date ? ' (' + r.date + ')' : ''}`;
+  if (store === 'editions') return `Edition: ${r.title || 'untitled'}`;
+  return r.id;
+}
+
+async function findRecordsMissingFromImport(data) {
+  const stores = ['sales', 'expenses', 'editions'];
+  const missing = [];
+  for (const store of stores) {
+    const local = await dbGetAll(store);
+    const importIds = new Set((data[store] || []).map(r => r.id));
+    for (const r of local) {
+      if (!importIds.has(r.id)) missing.push(describeRecord(store, r));
+    }
+  }
+  return missing;
+}
+
 document.getElementById('import-file').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
-  if (!confirm('Import will replace all existing data. Continue?')) return;
   const text = await file.text();
+  let data;
   try {
-    const data = JSON.parse(text);
+    data = JSON.parse(text);
+  } catch {
+    toast('Invalid JSON file');
+    e.target.value = '';
+    return;
+  }
+
+  const missing = await findRecordsMissingFromImport(data);
+  if (missing.length) {
+    const preview = missing.slice(0, 10).map(m => '• ' + m).join('\n');
+    const more = missing.length > 10 ? `\n…and ${missing.length - 10} more` : '';
+    const ok = confirm(
+      `This import is missing ${missing.length} record(s) that exist locally. ` +
+      `Importing will DELETE them:\n\n${preview}${more}\n\nContinue with import?`
+    );
+    if (!ok) { e.target.value = ''; return; }
+  } else {
+    if (!confirm('Import will replace all existing data. Continue?')) { e.target.value = ''; return; }
+  }
+
+  try {
     await dbClear('sales'); await dbClear('expenses'); await dbClear('editions');
     for (const s of (data.sales || [])) await dbPut('sales', s);
     for (const ex of (data.expenses || [])) await dbPut('expenses', ex);
@@ -2361,7 +2713,7 @@ document.getElementById('import-file').addEventListener('change', async e => {
     toast('Import successful ✓');
     renderDashboard();
   } catch {
-    toast('Invalid JSON file');
+    toast('Import failed');
   }
   e.target.value = '';
 });
@@ -2478,6 +2830,9 @@ const INVOICE_HTML = `<!DOCTYPE html>
     .controls{ display:none !important; }
     .sheet{ box-shadow:none; max-width:none; margin:0; padding:10mm 0 0; }
   }
+  .note-checks { display:flex; flex-direction:column; gap:8px; }
+  .note-checks label { font-size:.85rem; display:flex; align-items:flex-start; gap:8px; cursor:pointer; line-height:1.4; }
+  .note-checks input[type=checkbox] { margin-top:2px; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -2494,8 +2849,18 @@ const INVOICE_HTML = `<!DOCTYPE html>
       <div class="full"><label>Title of piece</label><input id="i-title" oninput="sync()"></div>
       <div><label>Medium</label><input id="i-medium" oninput="sync()" placeholder="e.g. Pastel &amp; coloured pencil"></div>
       <div><label>Dimensions</label><input id="i-size" oninput="sync()" placeholder="e.g. A3"></div>
-      <div><label>Commission price (£)</label><input id="i-price" type="number" oninput="sync()"></div>
+      <div><label>Price (£)</label><input id="i-price" type="number" oninput="sync()"></div>
       <div><label>Postage &amp; packaging (£)</label><input id="i-pp" type="number" oninput="sync()"></div>
+      <div class="full" style="margin-top:4px;">
+        <label style="display:block;margin-bottom:8px;">Notes to include</label>
+        <div class="note-checks">
+          <label><input type="checkbox" id="n-cello" onchange="sync()"> Mounted and presented in cellophane. Framing not included.</label>
+          <label><input type="checkbox" id="n-receipt" onchange="sync()"> Payment due on receipt of this invoice.</label>
+          <label><input type="checkbox" id="n-deposit" onchange="sync()"> 50% deposit payable now to secure your commission queue place.</label>
+          <label><input type="checkbox" id="n-balance" onchange="sync()"> Balance of 50% payable on completion, prior to delivery.</label>
+          <label style="flex-direction:column;gap:4px;"><span>Custom note:</span><input type="text" id="n-custom" oninput="sync()" placeholder="Add any additional note…" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:.85rem;"></label>
+        </div>
+      </div>
     </div>
     <button class="btn" onclick="window.print()">Save as PDF</button>
   </div>
@@ -2525,10 +2890,7 @@ const INVOICE_HTML = `<!DOCTYPE html>
     </div>
 
     <div class="block">
-<div class="pay-note">
-  Your piece will be mounted and presented in cellophane to protect it.
-  Framing is not included.
-</div>
+<div class="pay-note" id="o-notes" style="display:none;"></div>
       <table>
         <tbody><tr><td>Price</td><td class="amt" id="o-price"></td></tr>
         <tr><td>Postage &amp; packaging</td><td class="amt" id="o-pp"></td></tr>
@@ -2536,15 +2898,15 @@ const INVOICE_HTML = `<!DOCTYPE html>
       </tbody></table>
     </div>
 
-<div class="pay">
-  <div class="pay-row">
+<div class="pay" id="pay-section" style="display:none;">
+  <div class="pay-row" id="pay-deposit-row" style="display:none;">
     <div class="txt">
       Payable now to secure your place in my commission queue (50%)
     </div>
     <div class="amt" id="o-deposit"></div>
   </div>
 
-  <div class="pay-row">
+  <div class="pay-row" id="pay-balance-row" style="display:none;">
     <div class="txt">
       Payable on completion, prior to delivery (50%)
     </div>
@@ -2575,6 +2937,8 @@ const INVOICE_HTML = `<!DOCTYPE html>
   function gv(id){ return document.getElementById(id).value.trim(); }
   function money(n){ return '£' + (Math.round(n*100)/100).toLocaleString('en-GB', {minimumFractionDigits: (2), maximumFractionDigits:2}); }
   function set(id,v){ document.getElementById(id).textContent = v; }
+  function gcb(id){ var el=document.getElementById(id); return el&&el.checked; }
+  function show(id,v){ var el=document.getElementById(id); if(el) el.style.display=v?'':'none'; }
   function sync(){
     set('o-num', gv('i-num'));
     set('o-ref', gv('i-num'));
@@ -2593,6 +2957,20 @@ const INVOICE_HTML = `<!DOCTYPE html>
     set('o-total', total ? money(total) : '');
     set('o-deposit', total ? money(total/2) : '');
     set('o-balance', total ? money(total/2) : '');
+    // Notes
+    var notes = [];
+    if(gcb('n-cello')) notes.push('Mounted and presented in cellophane to protect it. Framing is not included.');
+    if(gcb('n-receipt')) notes.push('Payment is due on receipt of this invoice.');
+    var custom = document.getElementById('n-custom') ? document.getElementById('n-custom').value.trim() : '';
+    if(custom) notes.push(custom);
+    var notesEl = document.getElementById('o-notes');
+    if(notesEl){ notesEl.textContent = notes.join(' '); show('o-notes', notes.length>0); }
+    // Payment rows
+    var showDeposit = gcb('n-deposit');
+    var showBalance = gcb('n-balance');
+    show('pay-deposit-row', showDeposit);
+    show('pay-balance-row', showBalance);
+    show('pay-section', showDeposit||showBalance);
   }
   sync();
 <\/script>
@@ -2620,24 +2998,31 @@ const INVOICE_HTML = `<!DOCTYPE html>
       var el = document.getElementById(id);
       if (el && fields[id] !== undefined) el.value = fields[id];
     });
+    if (d.notePresets && Array.isArray(d.notePresets)) {
+      d.notePresets.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && el.type === 'checkbox') el.checked = true;
+      });
+    }
     if (typeof sync === 'function') sync();
   } catch(e) {}
 })();
 <\/script>
 </body></html>`;
 
-function generateInvoice(sale) {
+async function generateInvoice(sale) {
   // Use stored invoice number if already generated, otherwise allocate next
   let invoiceNum = sale.invoiceNum;
   if (!invoiceNum) {
     const n = settings.nextInvoiceNum || 1;
     invoiceNum = `INV-${String(n).padStart(3, '0')}`;
-    settings.nextInvoiceNum = n + 1;
-    localStorage.setItem('studio-settings', JSON.stringify(settings));
+    await saveSetting('nextInvoiceNum', n + 1);
     // Save the number back to the sale record
     dbPut('sales', { ...sale, invoiceNum });
   }
 
+  const isCommission = sale.type === 'commission';
+  const notePresets = isCommission ? ['n-cello', 'n-deposit', 'n-balance'] : ['n-receipt'];
   const prefill = {
     invoiceNum,
     invoiceDate: sale.date ? fmtDate(sale.date) : '',
@@ -2648,7 +3033,8 @@ function generateInvoice(sale) {
     medium: sale.medium || '',
     dimensions: sale.dimensions || '',
     price: sale.salePrice ? String(sale.salePrice) : '',
-    pp: ''
+    pp: '',
+    notePresets,
   };
 
   // Inject prefill data directly into the HTML as a script constant —
@@ -2658,7 +3044,13 @@ function generateInvoice(sale) {
 
   const blob = new Blob([injectedHTML], {type: 'text/html'});
   const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
