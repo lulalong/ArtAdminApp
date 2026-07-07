@@ -2947,7 +2947,6 @@ const INVOICE_HTML = `<!DOCTYPE html>
 
     <div class="thanks">
       <div class="big">Thank you.</div>
-      <div class="small">I am looking forward to making this piece for you. If anything changes or you have a question along the way, just drop me a line.</div>
     </div>
     <div class="foot">lulalongart.com   ·   contact@lulalongart.com</div>
   </div>
@@ -2969,10 +2968,11 @@ const INVOICE_HTML = `<!DOCTYPE html>
     set('o-medium', gv('i-medium'));
     set('o-size', gv('i-size'));
     var price = parseFloat(gv('i-price')) || 0;
-    var pp = parseFloat(gv('i-pp')) || 0;
+    var ppStr = document.getElementById('i-pp') ? document.getElementById('i-pp').value.trim() : '';
+    var pp = parseFloat(ppStr) || 0;
     var total = price + pp;
     set('o-price', price ? money(price) : '');
-    set('o-pp', pp ? money(pp) : '');
+    set('o-pp', ppStr !== '' ? money(pp) : '');
     set('o-total', total ? money(total) : '');
     set('o-deposit', total ? money(total/2) : '');
     set('o-balance', total ? money(total/2) : '');
@@ -3044,13 +3044,18 @@ const INVOICE_HTML = `<!DOCTYPE html>
 </body></html>`;
 
 async function generateInvoice(sale) {
-  // Use stored invoice number if already generated, otherwise allocate next
+  // Use stored invoice number if already generated, otherwise derive next from all existing invoices
   let invoiceNum = sale.invoiceNum;
   if (!invoiceNum) {
-    const n = settings.nextInvoiceNum || 1;
-    invoiceNum = `INV-${String(n).padStart(3, '0')}`;
-    await saveSetting('nextInvoiceNum', n + 1);
-    // Save the number back to the sale record
+    const allSales = await dbGetAll('sales');
+    let max = 0;
+    allSales.forEach(s => {
+      if (s.invoiceNum) {
+        const m = s.invoiceNum.match(/(\d+)$/);
+        if (m) max = Math.max(max, parseInt(m[1]));
+      }
+    });
+    invoiceNum = `INV-${String(max + 1).padStart(3, '0')}`;
     dbPut('sales', { ...sale, invoiceNum });
   }
 
