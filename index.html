@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Studio Admin</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -596,25 +596,100 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 760px) {
-  .sidebar { width: 100%; min-height: auto; height: 56px; flex-direction: row; bottom: 0; top: auto; align-items: center; }
+  /* Prevent any horizontal overflow */
+  html, body { overflow-x: hidden; max-width: 100vw; }
+
+  /* ── BOTTOM NAV ── */
+  /* env(safe-area-inset-bottom) accounts for iPhone home bar */
+  .sidebar {
+    width: 100%; min-height: auto;
+    height: calc(56px + env(safe-area-inset-bottom));
+    flex-direction: row; bottom: 0; top: auto;
+    align-items: flex-start;
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow: hidden;
+  }
   .sidebar-brand { display: none; }
-  .nav { display: flex; flex-direction: row; padding: 0; flex: 1; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .nav {
+    display: flex; flex-direction: row; padding: 0; flex: 1;
+    height: 56px; align-items: center;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    justify-content: space-around;
+  }
   .nav::-webkit-scrollbar { display: none; }
-  .nav-item { flex-direction: column; gap: 2px; font-size: .52rem; padding: 6px 10px; justify-content: center; align-items: center; flex-shrink: 0; width: auto; min-width: 0; text-align: center; }
+  .nav-item {
+    flex-direction: column; gap: 3px; font-size: .52rem;
+    padding: 8px 12px; justify-content: center; align-items: center;
+    flex: 1; min-width: 0; text-align: center; height: 56px;
+  }
   .nav-item .nav-label { display: block; }
+  .nav-item .icon { width: 18px; }
   .sidebar-footer { display: none; }
-  .main { margin-left: 0; margin-bottom: 56px; padding: 20px 16px; }
-  .stat-grid { grid-template-columns: 1fr 1fr; }
-  .report-grid { grid-template-columns: 1fr; }
+
+  /* ── MAIN CONTENT ── */
+  .main {
+    margin-left: 0;
+    margin-bottom: calc(56px + env(safe-area-inset-bottom));
+    padding: 18px 14px;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* ── PAGE HEADER ── */
+  .page-header {
+    flex-direction: column; gap: 10px;
+    align-items: flex-start; margin-bottom: 20px;
+  }
+  .page-title { font-size: 1.6rem; }
+
+  /* ── DASHBOARD ── */
+  .stat-grid { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .stat-card { padding: 14px 14px; }
+  .stat-value { font-size: 1.5rem; }
+  .dash-grid-2 { grid-template-columns: 1fr !important; }
+
+  /* ── REPORT ── */
+  .report-grid { grid-template-columns: 1fr; gap: 16px; }
+
+  /* ── FORM ── */
   .field-row { grid-template-columns: 1fr; }
+
+  /* ── TABLES → CARDS ── */
   .table-wrap { display: none; }
   .card-list { display: block; }
-  .page-header { flex-direction: column; gap: 12px; align-items: flex-start; }
-  .dash-grid-2 { grid-template-columns: 1fr !important; }
+
+  /* ── FILTER BAR ── */
   .filter-bar { gap: 6px; }
   .filter-bar input[type=text] { flex: 1 1 100%; width: 100%; }
   .filter-bar select { flex: 1 1 calc(50% - 6px); }
   .filter-count { flex: 1 1 100%; text-align: left; }
+
+  /* ── TOAST — sits above bottom nav ── */
+  .toast {
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    right: 12px; left: 12px; text-align: center;
+  }
+
+  /* ── MODAL — slides up from bottom, full width ── */
+  .modal-overlay {
+    padding: 0; align-items: flex-end; overflow-y: hidden;
+  }
+  .modal {
+    width: 100%; max-width: 100%;
+    max-height: 92vh; overflow-y: auto;
+    padding: 22px 16px 32px;
+    margin: 0; border-radius: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-title { font-size: 1.3rem; margin-bottom: 18px; }
+
+  /* ── SETTINGS ── */
+  .settings-section { padding: 16px 14px; }
+
+  /* ── SPLIT ROWS (proceeds) ── */
+  .split-row { flex-wrap: wrap !important; }
+  .split-row input[type=text] { flex: 1 1 100% !important; margin-bottom: 4px; }
+  .split-row input[type=number] { flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; }
 }
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -783,14 +858,20 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
         <option>Materials</option>
         <option>Framing</option>
         <option>Printing &amp; reproductions</option>
+        <option>Packaging materials</option>
         <option>Postage &amp; shipping</option>
+        <option>Payment processing fees</option>
         <option>Software &amp; subscriptions</option>
         <option>Exhibition fees</option>
         <option>Photography</option>
         <option>Hardware</option>
         <option>Stationery</option>
         <option>Training &amp; events</option>
+        <option>Travel &amp; transport</option>
         <option>Marketing</option>
+        <option>Professional fees</option>
+        <option>Insurance</option>
+        <option>Charitable donations</option>
         <option>Other</option>
       </select>
       <span class="filter-count" id="expenses-filter-count"></span>
@@ -1008,6 +1089,11 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
     </div>
     <div id="sale-invoice-fields">
       <div style="font-size:.63rem;letter-spacing:.16em;text-transform:uppercase;color:var(--goldd);margin:16px 0 10px;border-top:1px solid var(--hair);padding-top:14px">Proceeds split</div>
+      <div class="field">
+        <label>Postage &amp; packaging (£)</label>
+        <input type="number" id="sale-postage" step="0.01" min="0" placeholder="0.00">
+        <div class="field-hint">Pass-through cost. Excluded from your taxable income automatically.</div>
+      </div>
       <div id="sale-splits-list"></div>
       <div style="display:flex;gap:10px;align-items:center;margin-top:4px;">
         <button type="button" class="btn btn-ghost btn-sm" id="btn-add-split">+ Add party</button>
@@ -1088,14 +1174,20 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--gold); }
         <option>Materials</option>
         <option>Framing</option>
         <option>Printing &amp; reproductions</option>
+        <option>Packaging materials</option>
         <option>Postage &amp; shipping</option>
+        <option>Payment processing fees</option>
         <option>Software &amp; subscriptions</option>
         <option>Exhibition fees</option>
         <option>Photography</option>
         <option>Hardware</option>
         <option>Stationery</option>
         <option>Training &amp; events</option>
+        <option>Travel &amp; transport</option>
         <option>Marketing</option>
+        <option>Professional fees</option>
+        <option>Insurance</option>
+        <option>Charitable donations</option>
         <option>Other</option>
       </select>
     </div>
@@ -1266,9 +1358,9 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // Used for all income/revenue calculations so tax figures reflect what the artist actually receives.
 function netProceeds(sale) {
   const price = parseFloat(sale.salePrice) || 0;
-  if (!sale.splits || !sale.splits.length) return price;
-  const splitTotal = sale.splits.reduce((t, sp) => t + (parseFloat(sp.amount) || 0), 0);
-  return price - splitTotal;
+  const splitTotal = (sale.splits || []).reduce((t, sp) => t + (parseFloat(sp.amount) || 0), 0);
+  const postage = parseFloat(sale.postage) || 0;
+  return price - splitTotal - postage;
 }
 
 function fmt(n) {
@@ -1652,8 +1744,9 @@ function addSplitRow(label = '', amount = '') {
 
 function updateSplitsNet() {
   const price = parseFloat(document.getElementById('sale-price').value) || 0;
+  const postage = parseFloat(document.getElementById('sale-postage').value) || 0;
   const rows = document.querySelectorAll('#sale-splits-list .split-row');
-  let total = 0;
+  let total = postage;
   rows.forEach(row => {
     const amtInput = row.querySelectorAll('input')[1];
     total += parseFloat(amtInput.value) || 0;
@@ -1661,7 +1754,7 @@ function updateSplitsNet() {
   const net = price - total;
   const el = document.getElementById('sale-splits-net');
   if (el) {
-    if (rows.length > 0 && price > 0) {
+    if ((rows.length > 0 || postage > 0) && price > 0) {
       el.textContent = `Your net: ${fmt(net)}`;
       el.style.color = net < 0 ? 'var(--red)' : 'var(--muted)';
     } else {
@@ -1678,6 +1771,7 @@ function clearSplits() {
 
 document.getElementById('btn-add-split').addEventListener('click', () => addSplitRow());
 document.getElementById('sale-price').addEventListener('input', updateSplitsNet);
+document.getElementById('sale-postage').addEventListener('input', updateSplitsNet);
 
 document.getElementById('btn-new-sale').addEventListener('click', () => {
   document.getElementById('sale-id').value = '';
@@ -1709,6 +1803,7 @@ document.getElementById('btn-new-sale').addEventListener('click', () => {
   document.getElementById('sale-address').value = '';
   document.getElementById('sale-notes').value = '';
   document.getElementById('sale-invoice-num').value = '';
+  document.getElementById('sale-postage').value = '';
   clearSplits();
   populateEditionSelect();
   openModal('modal-sale');
@@ -1804,6 +1899,7 @@ async function editSale(id) {
   document.getElementById('sale-address').value = s.address || '';
   document.getElementById('sale-notes').value = s.notes || '';
   document.getElementById('sale-invoice-num').value = s.invoiceNum || '';
+  document.getElementById('sale-postage').value = s.postage || '';
   clearSplits();
   (s.splits || []).forEach(sp => addSplitRow(sp.label || '', sp.amount || ''));
   await populateEditionSelect(s.editionId);
@@ -1833,8 +1929,9 @@ async function viewSale(id) {
     ['Title', s.title || '—'],
     editionName ? ['Edition', editionName] : null,
     ['Price', fmt(s.salePrice)],
+    s.postage ? ['Postage & packaging', fmt(s.postage)] : null,
     ...(s.splits || []).map(sp => sp.label || sp.amount ? [sp.label || 'Split', fmt(sp.amount)] : null).filter(Boolean),
-    (s.splits && s.splits.length) ? ['Your net proceeds', fmt(s.salePrice - s.splits.reduce((t, sp) => t + (sp.amount || 0), 0))] : null,
+    (s.postage || (s.splits && s.splits.length)) ? ['Your net proceeds', fmt(netProceeds(s))] : null,
     s.medium ? ['Medium', s.medium] : null,
     s.dimensions ? ['Dimensions', s.dimensions] : null,
     s.contact ? ['Contact', s.contact] : null,
@@ -1992,6 +2089,7 @@ document.getElementById('btn-save-sale').addEventListener('click', async () => {
     contact: document.getElementById('sale-contact').value.trim(),
     address: document.getElementById('sale-address').value.trim(),
     invoiceNum: document.getElementById('sale-invoice-num').value.trim() || null,
+    postage: parseFloat(document.getElementById('sale-postage').value) || null,
     notes: document.getElementById('sale-notes').value.trim(),
     splits: (() => {
       const rows = document.querySelectorAll('#sale-splits-list .split-row');
@@ -3019,17 +3117,18 @@ const INVOICE_HTML = `<!DOCTYPE html>
         if (el && el.type === 'checkbox') el.checked = true;
       });
     }
-    if (d.splits && d.splits.length) {
+    if ((d.splits && d.splits.length) || d.postage) {
       var splitSec = document.getElementById('o-splits-section');
       var splitRows = document.getElementById('o-splits-rows');
-      var sInfo = document.getElementById('splits-info');
-      var sInfoRows = document.getElementById('splits-info-rows');
       var price = parseFloat(d.price) || 0;
-      var totalSplit = d.splits.reduce(function(t, s) { return t + (s.amount||0); }, 0);
-      var rowsHtml = d.splits.map(function(s) {
-        return '<tr><td>' + (s.label||'Split') + '</td><td class="amt">' + money(s.amount||0) + '</td></tr>';
-      }).join('');
-      rowsHtml += '<tr class="total"><td>Amount due</td><td class="amt">' + money(price - totalSplit) + '</td></tr>';
+      var postage = parseFloat(d.postage) || 0;
+      var totalSplit = (d.splits || []).reduce(function(t, s) { return t + (s.amount||0); }, 0);
+      var rowsHtml = '';
+      if (postage) rowsHtml += '<tr><td>Postage &amp; packaging</td><td class="amt">' + money(postage) + '</td></tr>';
+      (d.splits || []).forEach(function(s) {
+        rowsHtml += '<tr><td>' + (s.label||'Split') + '</td><td class="amt">' + money(s.amount||0) + '</td></tr>';
+      });
+      rowsHtml += '<tr class="total"><td>Amount due</td><td class="amt">' + money(price - postage - totalSplit) + '</td></tr>';
       if (splitSec && splitRows) { splitRows.innerHTML = rowsHtml; splitSec.style.display = ''; }
     }
     if (typeof sync === 'function') sync();
@@ -3066,9 +3165,10 @@ async function generateInvoice(sale) {
     medium: sale.medium || '',
     dimensions: sale.dimensions || '',
     price: sale.salePrice ? String(sale.salePrice) : '',
-    pp: '',
+    pp: sale.postage ? String(sale.postage) : '',
     notePresets,
     splits: sale.splits || [],
+    postage: sale.postage || 0,
   };
 
   // Inject prefill data directly into the HTML as a script constant —
