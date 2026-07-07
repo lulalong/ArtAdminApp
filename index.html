@@ -2831,8 +2831,8 @@ const INVOICE_HTML = `<!DOCTYPE html>
     .sheet{ box-shadow:none; max-width:none; margin:0; padding:10mm 0 0; }
   }
   .note-checks { display:flex; flex-direction:column; gap:8px; }
-  .note-checks label { font-size:.85rem; display:flex; align-items:flex-start; gap:8px; cursor:pointer; line-height:1.4; }
-  .note-checks input[type=checkbox] { margin-top:2px; flex-shrink:0; }
+  .note-checks label { font-size:.9rem !important; display:flex !important; align-items:flex-start !important; gap:8px !important; cursor:pointer; line-height:1.5 !important; text-transform:none !important; letter-spacing:normal !important; font-weight:normal !important; color:#3a2e2a !important; }
+  .note-checks input[type=checkbox] { margin-top:3px; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -2861,6 +2861,10 @@ const INVOICE_HTML = `<!DOCTYPE html>
           <label style="flex-direction:column;gap:4px;"><span>Custom note:</span><input type="text" id="n-custom" oninput="sync()" placeholder="Add any additional note…" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:.85rem;"></label>
         </div>
       </div>
+    </div>
+    <div id="splits-info" style="display:none;background:#f5f0eb;border-radius:6px;padding:12px;margin-bottom:14px;">
+      <div style="font-size:.63rem;letter-spacing:.1em;text-transform:uppercase;color:#9a8070;margin-bottom:8px;">Proceeds split · your records</div>
+      <div id="splits-info-rows" style="font-size:.85rem;"></div>
     </div>
     <button class="btn" onclick="window.print()">Save as PDF</button>
   </div>
@@ -2896,6 +2900,11 @@ const INVOICE_HTML = `<!DOCTYPE html>
         <tr><td>Postage &amp; packaging</td><td class="amt" id="o-pp"></td></tr>
         <tr class="total"><td>Total</td><td class="amt" id="o-total"></td></tr>
       </tbody></table>
+    </div>
+
+    <div class="block" id="o-splits-section" style="display:none;">
+      <div class="section-label">Proceeds distribution</div>
+      <table><tbody id="o-splits-rows"></tbody></table>
     </div>
 
 <div class="pay" id="pay-section" style="display:none;">
@@ -3004,6 +3013,20 @@ const INVOICE_HTML = `<!DOCTYPE html>
         if (el && el.type === 'checkbox') el.checked = true;
       });
     }
+    if (d.splits && d.splits.length) {
+      var splitSec = document.getElementById('o-splits-section');
+      var splitRows = document.getElementById('o-splits-rows');
+      var sInfo = document.getElementById('splits-info');
+      var sInfoRows = document.getElementById('splits-info-rows');
+      var price = parseFloat(d.price) || 0;
+      var totalSplit = d.splits.reduce(function(t, s) { return t + (s.amount||0); }, 0);
+      var rowsHtml = d.splits.map(function(s) {
+        return '<tr><td>' + (s.label||'Split') + '</td><td class="amt">' + money(s.amount||0) + '</td></tr>';
+      }).join('');
+      rowsHtml += '<tr class="total"><td>Your net proceeds</td><td class="amt">' + money(price - totalSplit) + '</td></tr>';
+      if (splitSec && splitRows) { splitRows.innerHTML = rowsHtml; splitSec.style.display = ''; }
+      if (sInfo && sInfoRows) { sInfoRows.innerHTML = rowsHtml; sInfo.style.display = ''; }
+    }
     if (typeof sync === 'function') sync();
   } catch(e) {}
 })();
@@ -3035,6 +3058,7 @@ async function generateInvoice(sale) {
     price: sale.salePrice ? String(sale.salePrice) : '',
     pp: '',
     notePresets,
+    splits: sale.splits || [],
   };
 
   // Inject prefill data directly into the HTML as a script constant —
